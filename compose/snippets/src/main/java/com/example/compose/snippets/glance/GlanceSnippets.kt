@@ -16,40 +16,81 @@
 
 package com.example.compose.snippets.glance
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.widget.RemoteViews
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.Button
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
+import androidx.glance.appwidget.CheckBox
+import androidx.glance.appwidget.CheckboxDefaults
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.RadioButton
+import androidx.glance.appwidget.RadioButtonDefaults
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.Switch
+import androidx.glance.appwidget.SwitchDefaults
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionSendBroadcast
 import androidx.glance.appwidget.action.actionStartService
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.updateIf
+import androidx.glance.background
+import androidx.glance.color.ColorProvider
+import androidx.glance.color.ColorProviders
+import androidx.glance.color.DynamicThemeColorProviders
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.RowScope
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.text.Text
+import androidx.glance.unit.ColorProvider
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
 import com.example.compose.snippets.R
 import com.example.compose.snippets.layouts.MainActivity
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 
 private object GlanceCreateAppWidgetSnippet01 {
@@ -315,6 +356,612 @@ private object ActionParameters {
     }
   }
   // [END android_compose_glance_actioncparameters03]
+
+}
+
+@SuppressLint("RememberReturnType")
+object ManageAndUpdate {
+  abstract
+  // [START android_compose_glance_manageupdate01]
+  class DestinationAppWidget : GlanceAppWidget() {
+
+    //...
+
+    @Composable
+    fun MyContent() {
+      val repository = remember { DestinationsRepository.getInstance() }
+      // Retrieve the cache data everytime the content is refreshed
+      val destinations by repository.destinations.collectAsState(State.Loading)
+
+      when (destinations) {
+        is State.Loading -> {
+          // show loading content
+        }
+        is State.Error -> {
+          // show widget error content
+        }
+        is State.Completed -> {
+          // show the list of destinations
+        }
+      }
+    }
+  }
+  // [END android_compose_glance_manageupdate01]
+
+
+
+  suspend fun update02(context: Context, glanceId: GlanceId) {
+    // [START android_compose_glance_manageupdate02]
+    MyAppWidget().update(context, glanceId)
+    // [END android_compose_glance_manageupdate02]
+
+
+    // [START android_compose_glance_manageupdate03]
+    val manager = GlanceAppWidgetManager(context)
+    val widget = GlanceSizeModeWidget()
+    val glanceIds = manager.getGlanceIds(widget.javaClass)
+    glanceIds.forEach { glanceId ->
+      widget.update(context, glanceId)
+    }
+    // [END android_compose_glance_manageupdate03]
+
+    // [START android_compose_glance_manageupdate04]
+    // Updates all placed instances of MyAppWidget
+    MyAppWidget().updateAll(context)
+
+    // Iterate over all placed instances of MyAppWidget and update if the state of
+    // the instance matches the given predicate
+    MyAppWidget().updateIf<State>(context) { state ->
+      state == State.Completed
+    }
+    // [END android_compose_glance_manageupdate04]
+
+  }
+
+
+  // [START android_compose_glance_manageupdate05]
+  class DataSyncWorker(
+    val context: Context,
+    val params: WorkerParameters,
+  ) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+      // Fetch data or do some work and then update all instance of your widget
+      MyAppWidget().updateAll(context)
+      return Result.success()
+    }
+  }
+// [END android_compose_glance_manageupdate05]
+
+}
+
+object BuildUIWithGlance {
+
+  @Composable
+  fun example1(){
+    // [START android_compose_glance_buildUI01]
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(16.dp)) {
+      val modifier = GlanceModifier.defaultWeight()
+      Text("first", modifier)
+      Text("second", modifier)
+      Text("third", modifier)
+    }
+    // [END android_compose_glance_buildUI01]
+  }
+
+  @Composable
+  fun example2() {
+
+    // [START android_compose_glance_buildUI02]
+    //Remember to import Glance Composables
+    //import androidx.glance.appwidget.layout.LazyColumn
+
+    LazyColumn {
+      items(10) { index: Int ->
+        Text(
+          text = "Item $index",
+          modifier = GlanceModifier.fillMaxWidth()
+        )
+      }
+    }
+    // [END android_compose_glance_buildUI02]
+  }
+
+  @Composable
+  fun example3() {
+    // [START android_compose_glance_buildUI03]
+    LazyColumn {
+      item {
+        Text("First Item")
+      }
+      item {
+        Text("Second Item")
+      }
+    }
+    // [END android_compose_glance_buildUI03]
+  }
+
+  @Composable
+  fun example4() {
+    val peopleNameList = arrayListOf<String>()
+    val peopleList = arrayListOf<Person>()
+
+    // [START android_compose_glance_buildUI04]
+    LazyColumn {
+      items(peopleNameList) { name ->
+        Text(name)
+      }
+    }
+    // [END android_compose_glance_buildUI04]
+
+    // [START android_compose_glance_buildUI05]
+    LazyColumn {
+      item {
+        Text("Names:")
+      }
+      items(peopleNameList) { name ->
+        Text(name)
+      }
+
+      // or in case you need the index:
+      itemsIndexed(peopleNameList) { index, person ->
+        Text("$person at index $index")
+      }
+    }
+    // [END android_compose_glance_buildUI05]
+
+    LazyColumn {
+      // [START android_compose_glance_buildUI06]
+      items(items = peopleList, key = { person -> person.id }) { person ->
+        Text(person.name)
+      }
+      // [END android_compose_glance_buildUI06]
+    }
+  }
+}
+
+object SizeModeSnippets {
+
+  // [START android_compose_glance_buildUI07]
+  class MyAppWidget : GlanceAppWidget() {
+
+    override val sizeMode = SizeMode.Single
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        MyContent()
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      // Size will be the minimum size or resizable
+      // size defined in the App Widget metadata
+      val size = LocalSize.current
+      //...
+    }
+  }
+  // [END android_compose_glance_buildUI07]
+
+}
+
+object SizeModeSnippets2 {
+  // [START android_compose_glance_buildUI08]
+  class MyAppWidget : GlanceAppWidget() {
+
+    companion object {
+      private val SMALL_SQUARE = DpSize(100.dp, 100.dp)
+      private val HORIZONTAL_RECTANGLE = DpSize(250.dp, 100.dp)
+      private val BIG_SQUARE = DpSize(250.dp, 250.dp)
+    }
+
+    override val sizeMode = SizeMode.Responsive(
+      setOf(
+        SMALL_SQUARE,
+        HORIZONTAL_RECTANGLE,
+        BIG_SQUARE
+      )
+    )
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        MyContent()
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      // Size will be one of the sizes defined above.
+      val size = LocalSize.current
+      Column() {
+        if (size.height >= BIG_SQUARE.height) {
+          Text(text = "Where to?", modifier = GlanceModifier.padding(12.dp))
+        }
+        Row(horizontalAlignment = Alignment.CenterHorizontally) {
+          Button()
+          Button()
+          if (size.width >= HORIZONTAL_RECTANGLE.width) {
+            Button("School")
+          }
+        }
+        if (size.height >= BIG_SQUARE.height) {
+          Text(text = "provided by X")
+        }
+      }
+    }
+  }
+
+  // [END android_compose_glance_buildUI08]
+}
+
+
+object SizeModeSnippets3 {
+  // [START android_compose_glance_buildUI09]
+
+  class MyAppWidget : GlanceAppWidget() {
+
+    override val sizeMode = SizeMode.Exact
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        MyContent()
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      // Size will be the max available size for the AppWidget
+      val size = LocalSize.current
+      Column() {
+        Text(text = "Where to?", modifier = GlanceModifier.padding(12.dp))
+        Row(horizontalAlignment = Alignment.CenterHorizontally) {
+          Button()
+          Button()
+          if (size.width > 250.dp) {
+            Button("School")
+          }
+        }
+      }
+    }
+  }
+  // [END android_compose_glance_buildUI09]
+
+}
+
+object AccessResources {
+  @Composable
+  fun example1() {
+    // [START android_compose_glance_buildUI10]
+    LocalContext.current.getString(R.string.my_titile)
+    // [END android_compose_glance_buildUI10]
+
+
+    // [START android_compose_glance_buildUI11]
+    Column(
+      modifier = GlanceModifier.background(R.color.default_widget_background)
+    ) {/**...*/}
+
+    Image(
+      provider = ImageProvider(R.drawable.ic_logo),
+      contentDescription = "My image",
+    )
+    // [END android_compose_glance_buildUI11]
+
+  }
+}
+
+object CompoundButton {
+  @Composable
+  fun example1() {
+    // [START android_compose_glance_buildUI12]
+    var isApplesChecked by remember { mutableStateOf(false) }
+    var isEnabledSwitched by remember { mutableStateOf(false) }
+    var isRadioChecked by remember { mutableStateOf(0) }
+
+    CheckBox(
+      checked = isApplesChecked,
+      onCheckedChange = { isApplesChecked = !isApplesChecked },
+      text = "Apples"
+    )
+
+    Switch(
+      checked = isEnabledSwitched,
+      onCheckedChange = { isEnabledSwitched = !isEnabledSwitched },
+      text = "Enabled"
+    )
+
+    RadioButton(
+      checked = isRadioChecked == 1,
+      onClick = { isRadioChecked = 1 },
+      text = "Checked"
+    )
+    // [END android_compose_glance_buildUI12]
+  }
+
+  class MyAppWidget : GlanceAppWidget() {
+
+
+    // [START android_compose_glance_buildUI13]
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      val myRepository = MyRepository.getInstance()
+
+      provideContent {
+        val scope = rememberCoroutineScope()
+
+        val saveApple: (Boolean) -> Unit =
+          { scope.launch { myRepository.saveApple(it) } }
+        MyContent(saveApple)
+      }
+    }
+
+    @Composable
+    private fun MyContent(saveApple: (Boolean) -> Unit) {
+
+      var isAppleChecked by remember { mutableStateOf(false) }
+
+      Button(
+        text = "Save",
+        onClick = { saveApple(isAppleChecked) }
+      )
+    }
+  }
+  // [END android_compose_glance_buildUI13]
+
+  @Composable
+  fun example3() {
+    val colorAccentDay = Color.Blue
+    val colorAccentNight = Color.Blue
+    var isChecked by remember { mutableStateOf(false) }
+
+    // [START android_compose_glance_buildUI14]
+    CheckBox(
+      // ...
+      colors = CheckboxDefaults.colors(
+        checkedColor = ColorProvider(day = colorAccentDay, night = colorAccentNight),
+        uncheckedColor = ColorProvider(day = Color.DarkGray, night = Color.LightGray)
+      ),
+      checked = isChecked,
+      onCheckedChange = {isChecked = !isChecked}
+    )
+
+    Switch(
+      // ...
+      colors = SwitchDefaults.colors(
+        checkedThumbColor = ColorProvider(day = Color.Red, night = Color.Cyan),
+        uncheckedThumbColor = ColorProvider(day = Color.Green, night = Color.Magenta),
+        checkedTrackColor = ColorProvider(day = Color.Blue, night = Color.Yellow),
+        uncheckedTrackColor = ColorProvider(day = Color.Magenta, night = Color.Green)
+      ),
+      checked = isChecked,
+      onCheckedChange = {isChecked = !isChecked},
+      text = "Enabled"
+    )
+
+    RadioButton(
+      // ...
+      colors = RadioButtonDefaults.colors(
+        checkedColor = ColorProvider(day = Color.Cyan, night = Color.Yellow),
+        uncheckedColor = ColorProvider(day = Color.Red, night = Color.Blue)
+      ),
+
+    )
+    // [END android_compose_glance_buildUI14]
+
+  }
+
+  private fun RadioButton(colors: Any) {
+
+  }
+
+}
+
+object GlanceTheming {
+  class ExampleAppWidget : GlanceAppWidget() {
+    // [START android_compose_glance_glancetheming01]
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        GlanceTheme {
+          MyContent()
+        }
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      //...
+      Image(
+        //...
+        colorFilter = ColorFilter.tint(GlanceTheme.colors.secondary),
+        contentDescription = "Example Image",
+        provider = ImageProvider( R.drawable.ic_logo)
+        //...
+      )
+    }
+    // [END android_compose_glance_glancetheming01]
+
+  }
+
+  class ExampleAppWidget2 : GlanceAppWidget() {
+    // [START android_compose_glance_glancetheming02]
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        GlanceTheme(colors = MyAppWidgetGlanceColorScheme.colors) {
+          MyContent()
+        }
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      //...
+      Image(
+        //...
+        colorFilter = ColorFilter.tint(GlanceTheme.colors.secondary),
+        provider = ImageProvider(R.drawable.ic_logo),
+        contentDescription = "Example"
+      )
+    }
+    // [END android_compose_glance_glancetheming02]
+
+  }
+
+  class ExampleAppWidget3 : GlanceAppWidget() {
+    // [START android_compose_glance_glancetheming03]
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+      //...
+
+      provideContent {
+        GlanceTheme(
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            GlanceTheme.colors
+          else
+            MyAppWidgetGlanceColorScheme.colors
+        ) {
+          MyContent()
+        }
+      }
+    }
+
+    @Composable
+    private fun MyContent() {
+      //...
+      Image(
+        //...
+        colorFilter = ColorFilter.tint(GlanceTheme.colors.secondary),
+        provider = ImageProvider(R.drawable.ic_logo),
+        contentDescription = "Example"
+      )
+    }
+    // [END android_compose_glance_glancetheming03]
+
+  }
+
+  @Composable
+  fun shapeExample() {
+    //Note : android_compose_glance_glancetheming04 is found in button_outline.xml
+    // [START android_compose_glance_glancetheming05]
+    GlanceModifier.background(
+      imageProvider = ImageProvider(R.drawable.button_outline)
+    )
+    // [END android_compose_glance_glancetheming05]
+  }
+
+}
+
+object GlanceInteroperability {
+  @Composable
+  fun example01() {
+    // [START android_compose_glance_glanceinteroperability01]
+    val packageName = LocalContext.current.packageName
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+      Text("Isn't that cool?")
+      AndroidRemoteViews(RemoteViews(packageName, R.layout.example_layout))
+    }
+    // [END android_compose_glance_glanceinteroperability01]
+  }
+
+  @Composable
+  fun example02() {
+    val packageName = null
+
+    // [START android_compose_glance_glanceinteroperability02]
+
+    AndroidRemoteViews(
+      remoteViews = RemoteViews(packageName, R.layout.my_container_view),
+      containerViewId = R.id.example_view
+    ) {
+      Column(modifier = GlanceModifier.fillMaxSize()) {
+        Text("My title")
+        Text("Maybe a long content...")
+      }
+    }
+    // [END android_compose_glance_glanceinteroperability02]
+  }
+
+}
+
+class MyAppWidgetGlanceColorScheme {
+  companion object {
+    val colors: ColorProviders = DynamicThemeColorProviders
+  }
+
+}
+
+/**
+ * Dummy interface
+ */
+interface MyRepository {
+
+  suspend fun saveApple(a:Any)
+  companion object {
+    fun getInstance(): MyRepository {
+      TODO("Example")
+    }
+  }
+
+}
+
+/**dummy function*/
+private fun RowScope.Button(s:String = "") {
+  TODO("Not yet implemented")
+}
+
+
+/** dummy class */
+data class Person(val id:String, val name:String)
+
+/** dummy class */
+class GlanceSizeModeWidget:GlanceAppWidget() {
+  override suspend fun provideGlance(context: Context, id: GlanceId) {
+    TODO("Not yet implemented")
+  }
+
+}
+
+
+/** dummy class */
+class MyAppWidget:GlanceAppWidget() {
+  override suspend fun provideGlance(context: Context, id: GlanceId) {
+    TODO("Not yet implemented")
+  }
+
+}
+
+/**
+ * Dummy Interface
+  */
+sealed interface State {
+
+    object Loading : State;
+    object Error : State
+    object Completed : State
+}
+
+
+
+/**
+ * Dummy class
+ */
+class DestinationsRepository {
+
+  lateinit var destinations : StateFlow<State>
+
+  companion object {
+    fun getInstance() :DestinationsRepository {
+      TODO("Not yet implemented")
+    }
+  }
 
 }
 
