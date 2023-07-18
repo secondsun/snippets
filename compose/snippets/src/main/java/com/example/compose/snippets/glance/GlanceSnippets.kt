@@ -102,6 +102,7 @@ private object GlanceCreateAppWidgetSnippet01 {
 private object GlanceCreateAppWidgetSnippet02 {
     // [START android_compose_glance_receiver02]
     class MyAppWidgetReceiver : GlanceAppWidgetReceiver() {
+        
         // Let MyAppWidgetReceiver know which GlanceAppWidget to use
         override val glanceAppWidget: GlanceAppWidget = MyAppWidget()
     }
@@ -109,6 +110,7 @@ private object GlanceCreateAppWidgetSnippet02 {
 
     // [START android_compose_glance_widget]
     class MyAppWidget : GlanceAppWidget() {
+
         override suspend fun provideGlance(context: Context, id: GlanceId) {
 
             // In this method, load data needed to render the AppWidget.
@@ -124,7 +126,6 @@ private object GlanceCreateAppWidgetSnippet02 {
     // [END android_compose_glance_widget]
 }
 
-//TODO Refactor this so the whole snippet is in an external file snippit the includes
 private object CreateUI {
     // [START android_compose_glance_createui]
     /* Import Glance Composables
@@ -299,7 +300,7 @@ private object ActionCallbackSnippet01 {
 }
 
 private object ActionParameters {
-    // [START android_compose_glance_actioncparameters01]
+    // [START android_compose_glance_actionparameters01]
     private val destinationKey = ActionParameters.Key<String>(
         NavigationActivity.KEY_DESTINATION
     )
@@ -329,21 +330,21 @@ private object ActionParameters {
             provideContent { MyContent() }
         }
     }
-    // [END android_compose_glance_actioncparameters01]
+    // [END android_compose_glance_actionparameters01]
 
     abstract class ActionParametersActivity : Activity() {
         val KEY_DESTINATION = "destination"
 
-        // [START android_compose_glance_actioncparameters02]
+        // [START android_compose_glance_actionparameters02]
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             val destination = intent.extras?.getString(KEY_DESTINATION) ?: return
             // ...
         }
     }
-    // [END android_compose_glance_actioncparameters02]
+    // [END android_compose_glance_actionparameters02]
 
-    // [START android_compose_glance_actioncparameters03
+    // [START android_compose_glance_actionparameters03
     class RefreshAction : ActionCallback {
         override suspend fun onAction(
             context: Context,
@@ -354,7 +355,7 @@ private object ActionParameters {
             // ...
         }
     }
-    // [END android_compose_glance_actioncparameters03]
+    // [END android_compose_glance_actionparameters03]
 
 }
 
